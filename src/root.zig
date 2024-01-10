@@ -76,13 +76,17 @@ const Figures = struct {
 pub const Inquirer = struct {
     pub const QuestionType = enum { SELECT };
 
+    fn println(out: anytype) !void {
+        try out.print("\n", .{});
+    }
+
     fn printSelectionQuestion(out: anytype, comptime prompt: []const u8) !void {
         try out.print(comptime ansi.color.Fg(.Blue, "? "), .{});
         try out.print(comptime ansi.color.Bold(ansi.color.Fg(.White, prompt)), .{});
     }
 
     fn printSelectOptions(out: anytype, options: []const []const u8, selectedIndex: usize) !void {
-        try out.print("\n", .{});
+        //try out.print("\n", .{});
 
         for (options, 0..) |option, i| {
             if (i == selectedIndex) {
@@ -104,15 +108,17 @@ pub const Inquirer = struct {
         var selectedIndex: usize = 0;
         _ = in;
 
+        try printSelectionQuestion(out, prompt);
+        try println(out);
+
         while (true) {
-            try printSelectionQuestion(out, prompt);
             try printSelectOptions(out, options, selectedIndex);
             const keyPressed = getch.getch();
             const optionslen: usize = options.len;
             //try out.print("keypress:{} {}\n", .{ options.len, keyPressed });
             if (keyPressed == @intFromEnum(Keyboard.DOWN)) {
                 selectedIndex = (selectedIndex + 1) % optionslen;
-                try clearLines(out, optionslen + 1);
+                try clearLines(out, optionslen);
                 //std.time.sleep(10 * std.time.ns_per_ms);
             } else if (keyPressed == @intFromEnum(Keyboard.UP)) {
                 if (selectedIndex == 0) {
@@ -120,7 +126,7 @@ pub const Inquirer = struct {
                 } else {
                     selectedIndex = selectedIndex - 1;
                 }
-                try clearLines(out, optionslen + 1);
+                try clearLines(out, optionslen);
             } else if (keyPressed == @intFromEnum(Keyboard.ENTER)) {
                 break;
             }
