@@ -1,0 +1,5 @@
+{
+    "zig.checkForUpdate": false,
+    "zig.path": "",
+    "git.postCommitCommand": "push"
+}
