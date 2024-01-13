@@ -1,9 +1,12 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const testing = std.testing;
 const ansi = @import("ansi.zig");
 const getch = @cImport({
     @cInclude("getch.h");
 });
+const terminal = @import("terminal_windows.zig");
+const Terminal = terminal.Terminal;
 
 // #ifdef _WIN32
 // 	static int const keyDw = 80;
@@ -43,45 +46,57 @@ const Figures = struct {
 
     fn windows() Figures {
         return .{
-            .arrowUp = '↑',
-            .arrowDown = '↓',
-            .arrowLeft = '←',
-            .arrowRight = '→',
+            .arrowUp = "↑",
+            .arrowDown = "↓",
+            .arrowLeft = "←",
+            .arrowRight = "→",
             .radioOn = "(*)",
             .radioOff = "( )",
-            .tick = '√',
-            .cross = '×',
+            .tick = "√",
+            .cross = "×",
             .ellipsis = "...",
-            .pointerSmall = '»',
-            .line = '─',
-            .pointer = '>',
+            .pointerSmall = "»",
+            .line = "─",
+            .pointer = ">",
         };
     }
 
     fn other() Figures {
-        return .{ .arrowUp = '↑', .arrowDown = '↓', .arrowLeft = '←', .arrowRight = '→', .radioOn = '◉', .radioOff = '◯', .tick = '✔', .cross = '✖', .ellipsis = '…', .pointerSmall = '›', .line = '─', .pointer = '❯' };
+        return .{ .arrowUp = "↑", .arrowDown = "↓", .arrowLeft = "←", .arrowRight = "→", .radioOn = "◉", .radioOff = "◯", .tick = "✔", .cross = "✖", .ellipsis = "…", .pointerSmall = "›", .line = "─", .pointer = "❯" };
     }
 
     pub fn getFigures() Figures {
-        const is_windows = std.Target.Os.Tag.windows;
-        const figures = if (is_windows) {
-            windows();
-        } else {
-            other();
-        };
+        const os = builtin.os;
+        const figures = if (os.tag == .windows) windows() else other();
         return figures;
     }
 };
 
 pub const Inquirer = struct {
+    terminal: Terminal = undefined,
     pub const QuestionType = enum { SELECT };
+
+    pub fn init() Inquirer {
+        const term = Terminal.init();
+        return .{ .terminal = term };
+    }
+
+    pub fn deinit(self: *const Inquirer) void {
+        _ = self;
+    }
 
     fn println(out: anytype) !void {
         try out.print("\n", .{});
     }
 
-    fn printSelectionQuestion(out: anytype, comptime prompt: []const u8) !void {
-        try out.print(comptime ansi.color.Fg(.Blue, "? "), .{});
+    fn printSelectionQuestion(out: anytype, comptime prompt: []const u8, answered: bool) !void {
+        if (!answered) {
+            try out.print(comptime ansi.color.Fg(.Blue, "? "), .{});
+        } else {
+            try out.print(comptime ansi.color.Fg(.Green, Figures.getFigures().tick), .{});
+            try out.print(comptime ansi.color.Fg(.Blue, " "), .{});
+        }
+
         try out.print(comptime ansi.color.Bold(ansi.color.Fg(.White, prompt)), .{});
     }
 
@@ -104,22 +119,21 @@ pub const Inquirer = struct {
         }
     }
 
-    pub fn select(out: anytype, in: anytype, comptime prompt: []const u8, comptime options: []const []const u8) !void {
+    pub fn select(self: Inquirer, out: anytype, in: anytype, comptime prompt: []const u8, comptime options: []const []const u8) !void {
+        _ = self;
         var selectedIndex: usize = 0;
         _ = in;
 
-        try printSelectionQuestion(out, prompt);
+        try printSelectionQuestion(out, prompt, true);
         try println(out);
 
         while (true) {
             try printSelectOptions(out, options, selectedIndex);
             const keyPressed = getch.getch();
             const optionslen: usize = options.len;
-            //try out.print("keypress:{} {}\n", .{ options.len, keyPressed });
             if (keyPressed == @intFromEnum(Keyboard.DOWN)) {
                 selectedIndex = (selectedIndex + 1) % optionslen;
                 try clearLines(out, optionslen);
-                //std.time.sleep(10 * std.time.ns_per_ms);
             } else if (keyPressed == @intFromEnum(Keyboard.UP)) {
                 if (selectedIndex == 0) {
                     selectedIndex = optionslen - 1;

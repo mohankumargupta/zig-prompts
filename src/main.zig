@@ -15,8 +15,10 @@ pub fn main() !void {
     _ = allocator;
 
     const options: []const []const u8 = &.{ "Python", "Zig" };
+    const asker = lib.Inquirer.init();
+    try asker.select(stdout_file, stdin_file, "Pick a language", options);
+    defer asker.deinit();
 
-    try lib.Inquirer.select(stdout_file, stdin_file, "Pick a language", options);
     //try stdout_file.print("{}", selected);
     //var bw = std.io.bufferedWriter(stdout_file);
     //const stdout = bw.writer();
